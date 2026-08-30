@@ -1,0 +1,36 @@
+{
+  "slug": "zepto",
+  "display_name": "Zepto",
+  "enabled": true,
+  "_README": "SKELETON — Zepto resolves a storeId from lat/lon and then keys everything off it. Capture a real search from web.zeptonow.com with DevTools and copy the storeId headers in verbatim.",
+  "request": {
+    "method": "GET",
+    "url": "https://api.zeptonow.com/api/v3/search",
+    "params": { "query": "{query_raw}" },
+    "headers": {
+      "accept": "application/json",
+      "app_version": "12.ADMIN",
+      "platform": "WEB",
+      "latitude": "{lat}",
+      "longitude": "{lon}",
+      "store_id": "REPLACE_WITH_CAPTURED_STORE_ID",
+      "storeId": "REPLACE_WITH_CAPTURED_STORE_ID",
+      "Referer": "https://www.zeptonow.com/"
+    }
+  },
+  "extract": {
+    "items_path": ["layout[0].data.resolvedItems", "items", "products"],
+    "fields": {
+      "title": ["productResponse.product.name", "product.name", "name"],
+      "price": ["productResponse.sellingPrice", "sellingPrice", "discountedSellingPrice"],
+      "mrp": ["productResponse.mrp", "mrp"],
+      "quantity_text": ["productResponse.productVariant.formattedPacksize", "product.formattedPacksize", "packsize"],
+      "image_url": ["productResponse.productVariant.images[0].path", "images[0].path"],
+      "in_stock": ["productResponse.outOfStock", "outOfStock"],
+      "store_product_id": ["productResponse.productVariant.id", "id"]
+    },
+    "in_stock_invert": true,
+    "deeplink_template": "https://www.zeptonow.com/pn/x/pvid/{store_product_id}"
+  },
+  "_note_price_units": "Zepto has historically returned prices in PAISE. If every price looks 100x too high, divide by adding a price_divisor — or just capture and check."
+}

@@ -1,0 +1,37 @@
+{
+  "slug": "bigbasket",
+  "display_name": "BigBasket",
+  "enabled": true,
+  "_README": "SKELETON — BigBasket keys off a city/address cookie rather than raw lat/lon. Set your delivery address on bigbasket.com first, then capture the search request with its cookies.",
+  "request": {
+    "method": "GET",
+    "url": "https://www.bigbasket.com/listing-svc/v2/products",
+    "params": {
+      "type": "ps",
+      "slug": "{query_raw}",
+      "page": "1"
+    },
+    "headers": {
+      "accept": "application/json",
+      "x-channel": "BB-WEB",
+      "Referer": "https://www.bigbasket.com/ps/?q={query}"
+    },
+    "cookies": {
+      "_bb_cid": "REPLACE_WITH_CAPTURED_CITY_ID",
+      "_bb_addressinfo": "REPLACE_WITH_CAPTURED_ADDRESS_COOKIE"
+    }
+  },
+  "extract": {
+    "items_path": ["tabs[0].product_info.products", "products"],
+    "fields": {
+      "title": ["desc", "name", "p_desc"],
+      "price": ["pricing.discount.prim_price.sp", "sp", "pricing.discount.subscription_price"],
+      "mrp": ["pricing.discount.mrp", "mrp"],
+      "quantity_text": ["w", "pack_desc", "unit"],
+      "image_url": ["images[0].m", "images[0].s", "p_img_url"],
+      "in_stock": ["availability.avail_status", "in_stock"],
+      "store_product_id": ["id", "sku"]
+    },
+    "deeplink_template": "https://www.bigbasket.com/pd/{store_product_id}/"
+  }
+}

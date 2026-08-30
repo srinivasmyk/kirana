@@ -1,0 +1,36 @@
+{
+  "slug": "blinkit",
+  "display_name": "Blinkit",
+  "enabled": true,
+  "_README": "SKELETON — you must fill request.url/headers/cookies and verify extract paths using tools/capture.py. See SETUP.md step 3. Blinkit resolves your dark store from lat/lon HEADERS, so those two headers are mandatory.",
+  "request": {
+    "method": "GET",
+    "url": "https://blinkit.com/v1/layout/search",
+    "params": { "q": "{query_raw}" },
+    "headers": {
+      "lat": "{lat}",
+      "lon": "{lon}",
+      "accept": "*/*",
+      "app_client": "consumer_web",
+      "web_app_version": "1010101010",
+      "Referer": "https://blinkit.com/s/?q={query}"
+    },
+    "cookies": {
+      "gr_1_lat": "{lat}",
+      "gr_1_lon": "{lon}"
+    }
+  },
+  "extract": {
+    "items_path": ["response.snippets", "objects"],
+    "fields": {
+      "title": ["data.name.text", "data.identity.id", "name"],
+      "price": ["data.normal_price.text", "data.price.text", "price"],
+      "mrp": ["data.mrp.text", "data.strike_price.text", "mrp"],
+      "quantity_text": ["data.variant.text", "data.unit.text", "unit"],
+      "image_url": ["data.image.url", "data.media_container.items[0].image.url", "image_url"],
+      "in_stock": ["data.inventory", "data.is_in_stock", "inventory"],
+      "store_product_id": ["data.product_id", "data.identity.id", "product_id"]
+    },
+    "deeplink_template": "https://blinkit.com/prn/x/prid/{store_product_id}"
+  }
+}

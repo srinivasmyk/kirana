@@ -1,0 +1,7 @@
+fastapi==0.115.6
+# NOTE: login uses a JSON body, so python-multipart is deliberately not needed.
+uvicorn[standard]==0.34.0
+httpx[http2]==0.28.1
+pydantic==2.10.4
+rapidfuzz==3.11.0
+pytest==8.3.4

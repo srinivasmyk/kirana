@@ -1,0 +1,36 @@
+{
+  "slug": "instamart",
+  "display_name": "Swiggy Instamart",
+  "enabled": true,
+  "_README": "SKELETON — Instamart needs lat/lng as query params AND a storeId cookie set by visiting the site. Capture from swiggy.com/instamart.",
+  "request": {
+    "method": "GET",
+    "url": "https://www.swiggy.com/api/instamart/search",
+    "params": {
+      "query": "{query_raw}",
+      "pageNumber": "0",
+      "searchResultsOffset": "0",
+      "limit": "40"
+    },
+    "headers": {
+      "accept": "application/json",
+      "Referer": "https://www.swiggy.com/instamart/search?custom_back=true&query={query}"
+    },
+    "cookies": {
+      "userLocation": "{\"lat\":{lat},\"lng\":{lon}}"
+    }
+  },
+  "extract": {
+    "items_path": ["data.widgets[0].data", "data.widgets[1].data", "data.products"],
+    "fields": {
+      "title": ["display_name", "name", "variations[0].display_name"],
+      "price": ["variations[0].price.offer_price", "variations[0].price.store_price", "price.offer_price"],
+      "mrp": ["variations[0].price.mrp", "price.mrp"],
+      "quantity_text": ["variations[0].quantity", "quantity"],
+      "image_url": ["variations[0].images[0]", "images[0]"],
+      "in_stock": ["variations[0].inventory.in_stock", "in_stock"],
+      "store_product_id": ["product_id", "variations[0].id", "id"]
+    },
+    "deeplink_template": "https://www.swiggy.com/instamart/item/{store_product_id}"
+  }
+}

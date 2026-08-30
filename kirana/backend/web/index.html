@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101219">
+<title>Kirana — grocery price check</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+
+<!--
+  Kirana web app. One file on purpose: no npm, no bundler, no build step.
+  Open it in any text editor and change what you like, then reload the page.
+-->
+<style>
+  :root {
+    --ink:        #101219;
+    --surface:    #191C25;
+    --surface-2:  #21252F;
+    --line:       #2C313D;
+    --text:       #EDEFF3;
+    --muted:      #8B93A3;
+    --mint:       #3DDC97;   /* reserved: means "cheapest". Nothing else. */
+    --alert:      #F2545B;
+
+    /* Store identity comes from the stores' own brand colours. */
+    --blinkit:    #F8CB46;
+    --zepto:      #8B5CF6;
+    --instamart:  #FF6B35;
+    --bigbasket:  #84C225;
+
+    --r: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .wrap { max-width: 620px; margin: 0 auto; padding: 0 16px 64px; }
+
+  /* ---------------------------------------------------------------- header */
+
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: linear-gradient(var(--ink) 82%, transparent);
+    padding: 18px 0 12px;
+  }
+
+  .brand {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .brand h1 {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700; font-size: 22px; letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .brand .tag {
+    font-size: 12px; color: var(--muted);
+  }
+  .brand button {
+    margin-left: auto;
+    background: none; border: 0; color: var(--muted);
+    font: inherit; font-size: 12px; cursor: pointer; padding: 4px;
+  }
+  .brand button:hover { color: var(--text); }
+
+  .searchbar { display: flex; gap: 8px; }
+
+  input[type=search], input[type=password], input[type=text] {
+    flex: 1; min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font: inherit; font-size: 16px;   /* 16px stops iOS zooming on focus */
+    padding: 13px 15px;
+    border-radius: var(--r);
+    outline: none;
+  }
+  input:focus-visible { border-color: var(--mint); }
+
+  button.go {
+    background: var(--mint); color: #08150E;
+    border: 0; border-radius: var(--r);
+    font: inherit; font-weight: 600; font-size: 15px;
+    padding: 0 20px; cursor: pointer;
+    white-space: nowrap;
+  }
+  button.go:disabled { opacity: .45; cursor: default; }
+
+  .locbar {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 10px; font-size: 12px; color: var(--muted);
+  }
+  .locbar button {
+    background: none; border: 0; color: var(--mint);
+    font: inherit; font-size: 12px; cursor: pointer;
+    text-decoration: underline; padding: 0;
+  }
+
+  /* ----------------------------------------------------------------- rows */
+
+  .row {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+
+  .row-head { display: flex; gap: 12px; align-items: flex-start; }
+  .row-head img {
+    width: 46px; height: 46px; border-radius: 9px;
+    object-fit: cover; background: var(--surface-2); flex: none;
+  }
+  .name { font-size: 14.5px; font-weight: 500; line-height: 1.35; }
+  .qty  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .verdict {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 500; font-size: 13px;
+    color: var(--mint);
+    margin: 11px 0 3px;
+  }
+  .verdict.flat { color: var(--muted); }
+
+  /* ------------------------------------------------- the price spread bars */
+
+  .offer {
+    display: grid;
+    grid-template-columns: 92px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    text-decoration: none; color: inherit;
+  }
+  .offer.linked { cursor: pointer; }
+  .offer.linked:hover .store { color: #fff; }
+
+  .store {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--muted);
+    min-width: 0;
+  }
+  .store i {
+    width: 7px; height: 7px; border-radius: 50%;
+    flex: none; background: var(--muted);
+  }
+  .s-blinkit   i { background: var(--blinkit); }
+  .s-zepto     i { background: var(--zepto); }
+  .s-instamart i { background: var(--instamart); }
+  .s-bigbasket i { background: var(--bigbasket); }
+
+  /* The signature element. Bar length is proportional to price, so the gap
+     between stores is visible before you read a single number. */
+  .track {
+    height: 7px; border-radius: 4px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .track > span {
+    display: block; height: 100%;
+    background: #3F4553;
+    border-radius: 4px;
+    transform-origin: left;
+    animation: grow .38s cubic-bezier(.2,.8,.3,1) both;
+  }
+  .best .track > span { background: var(--mint); }
+  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+  .price {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700; font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    text-align: right; white-space: nowrap;
+  }
+  .best .price { color: var(--mint); }
+  .price small {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 400; font-size: 10px;
+    color: var(--muted); margin-top: 1px;
+  }
+  .oos .price { color: var(--muted); font-size: 12px; font-weight: 500; }
+  .oos .track { opacity: .3; }
+
+  /* ---------------------------------------------------------- misc states */
+
+  .note {
+    border-radius: 10px; padding: 11px 13px;
+    font-size: 12.5px; line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .note.warn  { background: rgba(242,84,91,.12);  color: #FFB3B6; }
+  .note.quiet { background: var(--surface); color: var(--muted); }
+
+  .empty {
+    text-align: center; padding: 64px 24px; color: var(--muted);
+    font-size: 14px; line-height: 1.6;
+  }
+  .empty b { display: block; color: var(--text); font-size: 15px; margin-bottom: 6px; }
+
+  .skel {
+    height: 104px; border-radius: var(--r);
+    background: linear-gradient(100deg, var(--surface) 30%, var(--surface-2) 50%, var(--surface) 70%);
+    background-size: 300% 100%;
+    animation: shimmer 1.1s linear infinite;
+    margin-bottom: 10px;
+  }
+  @keyframes shimmer { to { background-position: -150% 0; } }
+
+  .meta { font-size: 11px; color: var(--muted); text-align: center; padding: 16px 0; }
+
+  dialog {
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--r);
+    padding: 22px; max-width: 340px; width: calc(100% - 40px);
+  }
+  dialog::backdrop { background: rgba(8,9,12,.7); }
+  dialog h2 { font-family: "Space Grotesk", sans-serif; font-size: 17px; margin: 0 0 6px; }
+  dialog p  { font-size: 13px; color: var(--muted); line-height: 1.55; margin: 0 0 14px; }
+  dialog .go { width: 100%; padding: 13px; margin-top: 10px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Kirana</h1>
+      <span class="tag">four stores, one price</span>
+      <button id="signout" hidden>Sign out</button>
+    </div>
+
+    <div id="app" hidden>
+      <div class="searchbar">
+        <input id="q" type="search" placeholder="Search — try “amul milk”"
+               autocomplete="off" enterkeyhint="search">
+        <button class="go" id="go">Check</button>
+      </div>
+      <div class="locbar">
+        <span id="loc">Finding you…</span>
+        <button id="setloc">change</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="out"></main>
+</div>
+
+<dialog id="gate">
+  <h2>Sign in</h2>
+  <p>Enter the password from the backend’s <code>.env</code> file.</p>
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="go" id="pwgo">Sign in</button>
+  <p id="pwerr" style="color:var(--alert); margin:10px 0 0" hidden></p>
+</dialog>
+
+<dialog id="locdlg">
+  <h2>Set your location</h2>
+  <p>Prices differ by neighbourhood, so this needs your coordinates. Open Google
+     Maps, right-click your home, and click the numbers at the top of the menu.</p>
+  <input id="latlon" type="text" placeholder="17.4474, 78.3762" inputmode="decimal">
+  <button class="go" id="locgo">Save location</button>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const out = $("#out");
+
+// Hyderabad centre. Only a starting point — prices will be for the wrong dark
+// store until we have the user's real position, and the UI says so.
+let loc = { lat: 17.3850, lon: 78.4867, exact: false };
+
+const rupee = v => "₹" + (Number.isInteger(v) ? v : v.toFixed(2));
+
+/* ------------------------------------------------------------------ auth */
+
+async function boot() {
+  const me = await fetch("/me").then(r => r.json()).catch(() => ({ authed: false }));
+  if (me.authed) start(); else $("#gate").showModal();
+}
+
+$("#pwgo").onclick = async () => {
+  const r = await fetch("/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: $("#pw").value }),
+  });
+  if (r.ok) { $("#gate").close(); start(); }
+  else { $("#pwerr").hidden = false; $("#pwerr").textContent = "That password didn't work."; }
+};
+$("#pw").addEventListener("keydown", e => { if (e.key === "Enter") $("#pwgo").click(); });
+
+$("#signout").onclick = async () => {
+  await fetch("/logout", { method: "POST" });
+  location.reload();
+};
+
+function start() {
+  $("#app").hidden = false;
+  $("#signout").hidden = false;
+  out.innerHTML = `<div class="empty"><b>What are you buying?</b>
+    Search once and see the price at Blinkit, Zepto, Instamart and BigBasket
+    side by side.</div>`;
+  locate();
+  $("#q").focus();
+}
+
+/* -------------------------------------------------------------- location */
+
+function showLoc() {
+  $("#loc").textContent = loc.exact
+    ? `Prices near ${loc.lat.toFixed(3)}, ${loc.lon.toFixed(3)}`
+    : "Using Hyderabad centre — prices may be off";
+}
+
+function saveLoc(lat, lon) {
+  loc = { lat, lon, exact: true };
+  localStorage.setItem("kirana.loc", JSON.stringify(loc));
+  showLoc();
+}
+
+function locate() {
+  const saved = localStorage.getItem("kirana.loc");
+  if (saved) { loc = JSON.parse(saved); showLoc(); return; }
+
+  // navigator.geolocation only exists in a secure context. Over plain http on
+  // a Tailscale IP it is simply undefined — hence the manual fallback.
+  if (!window.isSecureContext || !navigator.geolocation) {
+    showLoc();
+    $("#loc").textContent = "Location needs HTTPS — set it manually";
+    return;
+  }
+  showLoc();
+  navigator.geolocation.getCurrentPosition(
+    p => saveLoc(p.coords.latitude, p.coords.longitude),
+    () => { $("#loc").textContent = "Location denied — set it manually"; },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+  );
+}
+
+$("#setloc").onclick = () => { $("#latlon").value = `${loc.lat}, ${loc.lon}`; $("#locdlg").showModal(); };
+$("#locgo").onclick = () => {
+  const m = $("#latlon").value.split(",").map(s => parseFloat(s.trim()));
+  if (m.length === 2 && m.every(Number.isFinite)) { saveLoc(m[0], m[1]); $("#locdlg").close(); }
+};
+
+/* ---------------------------------------------------------------- search */
+
+let inflight = null;
+
+async function search() {
+  const q = $("#q").value.trim();
+  if (q.length < 2) return;
+
+  if (inflight) inflight.abort();
+  inflight = new AbortController();
+
+  $("#go").disabled = true;
+  out.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+
+  try {
+    const r = await fetch(
+      `/search?q=${encodeURIComponent(q)}&lat=${loc.lat}&lon=${loc.lon}`,
+      { signal: inflight.signal }
+    );
+    if (r.status === 401) { location.reload(); return; }
+    if (!r.ok) throw new Error(`Server said ${r.status}`);
+    render(await r.json());
+  } catch (e) {
+    if (e.name === "AbortError") return;
+    out.innerHTML = `<div class="note warn">
+      Couldn't reach the backend. Check that it's running and that this device
+      is on the same network or Tailscale.<br><span style="opacity:.7">${e.message}</span>
+    </div>`;
+  } finally {
+    $("#go").disabled = false;
+  }
+}
+
+$("#go").onclick = search;
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
+
+/* ---------------------------------------------------------------- render */
+
+function offerHTML(o, minPrice, isBest) {
+  const cls = [
+    "offer", "s-" + o.store,
+    isBest ? "best" : "",
+    o.in_stock ? "" : "oos",
+    o.deeplink ? "linked" : ""
+  ].join(" ");
+
+  // Bar length encodes the PREMIUM over the cheapest store, not the absolute
+  // price. Scaling from zero would make ₹27 and ₹31 look near-identical, which
+  // defeats the point. A 25% premium fills the track; the cheapest keeps a
+  // short mint stub so the baseline is still visible.
+  const premium = minPrice > 0 ? (o.price - minPrice) / minPrice : 0;
+  const pct = Math.min(100, Math.round(6 + (premium / 0.25) * 94));
+
+  const unit = { pc: "each", g: "per 100g", ml: "per 100ml" }[o.base_unit] || "";
+  const per  = o.price_per_100 ? `<small>${rupee(o.price_per_100)} ${unit}</small>` : "";
+
+  const right = o.in_stock
+    ? `<div class="price">${rupee(o.price)}${per}</div>`
+    : `<div class="price">Out of stock</div>`;
+
+  const tag = o.deeplink ? "a" : "div";
+  const href = o.deeplink ? ` href="${o.deeplink}" target="_blank" rel="noopener"` : "";
+
+  return `<${tag} class="${cls}"${href}>
+    <span class="store"><i></i>${o.store_name}</span>
+    <span class="track"><span style="width:${pct}%"></span></span>
+    ${right}
+  </${tag}>`;
+}
+
+function rowHTML(row) {
+  const live = row.offers.filter(o => o.in_stock);
+  const pool = live.length ? live : row.offers;
+  const minPrice = Math.min(...pool.map(o => o.price));
+  const bestId = live.length
+    ? live.reduce((a, b) => (a.price <= b.price ? a : b)).store
+    : null;
+
+  const verdict = row.max_saving > 0
+    ? `<div class="verdict">Save ${rupee(row.max_saving)} at ${
+        row.offers.find(o => o.store === bestId).store_name}</div>`
+    : (row.stores_available > 1
+        ? `<div class="verdict flat">Same price everywhere</div>`
+        : `<div class="verdict flat">Only store carrying this</div>`);
+
+  return `<div class="row">
+    <div class="row-head">
+      ${row.image_url ? `<img src="${row.image_url}" alt="" loading="lazy">` : ""}
+      <div>
+        <div class="name">${escapeHTML(row.display_name)}</div>
+        ${row.quantity_label ? `<div class="qty">${row.quantity_label}</div>` : ""}
+      </div>
+    </div>
+    ${verdict}
+    ${row.offers.map(o => offerHTML(o, minPrice, o.store === bestId)).join("")}
+  </div>`;
+}
+
+function render(data) {
+  let html = "";
+
+  // A store being down is worth saying out loud. Otherwise a missing cheaper
+  // option just looks like the app is wrong.
+  if (data.stores_degraded?.length) {
+    html += `<div class="note warn">No results from
+      <b>${data.stores_degraded.join(", ")}</b> — this may not be the full picture.
+      </div>`;
+  }
+
+  if (!data.products.length) {
+    html += `<div class="empty"><b>Nothing found</b>
+      Try a shorter or more common term — “milk” usually beats “amul taaza toned”.</div>`;
+    out.innerHTML = html;
+    return;
+  }
+
+  html += data.products.map(rowHTML).join("");
+  html += `<div class="meta">${data.products.length} products ·
+           ${data.took_ms} ms${data.cached_stores?.length ? " · cached" : ""}</div>`;
+  out.innerHTML = html;
+}
+
+const escapeHTML = s => s.replace(/[&<>"']/g,
+  c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ------------------------------------------------------------------- pwa */
+
+if ("serviceWorker" in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
+boot();
+</script>
+</body>
+</html>
